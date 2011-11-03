@@ -1,10 +1,6 @@
----
----
-;{% include js/jquery-1.6.4.min.js %}
-;{% include js/underscore.js %}
-;
-
 (function(context) {
+
+if (!site) throw new Error('Configuration not found');
 
 var longneck = {};
 
@@ -19,15 +15,17 @@ longneck.githubWatcherProject = function(resp) {
             url: 'https://api.github.com/users/' + u.login + '/repos',
             dataType: 'jsonp',
             success: function(resp) {
-                if (!resp.data.length) return;
+                if (!resp.data.length) return getProjects(shuffled[++i]);
                 var repo = _(resp.data)
                     .chain()
                     .shuffle()
-                    .detect(function(r) { return r.language === '{{site.github_lanaguage}}' })
+                    .detect(function(r) {
+                        return r.language === site.github_language;
+                    })
                     .value();
 
                 if (!repo) {
-                    getProjects(shuffled[i++]);
+                    getProjects(shuffled[++i]);
                 } else {
                     var template =
                         ""
@@ -39,7 +37,7 @@ longneck.githubWatcherProject = function(resp) {
                         + "<span class='title'> <%=description%></span>"
                         + "";
                     var t = _(template).template(repo);
-                    watcherProject.html(t).addClass('loaded');
+                    watcherProject.append(t).addClass('loaded');
                 }
 
             }
@@ -53,19 +51,24 @@ longneck.githubWatchers = function() {
     $.ajax({
         // TODO: this endpoint only returns maximum 30 users. Implement random
         // pagination so we see different groups of people.
-        url: 'https://api.github.com/repos/{{site.github_login}}/{{site.github_repo}}/watchers',
+        url: 'https://api.github.com/repos/' +
+            site.github_login + '/' +
+            site.github_repo + '/watchers',
         dataType: 'jsonp',
         success: function(resp) {
             if (!resp.data.length) return;
             longneck.githubWatcherProject(resp);
             var template =
-                "<a class='github-user' target='_blank' href='http://github.com/<%=login%>'>"
-                + "<span style='background-image:url(<%=avatar_url%>)' class='thumb' /></span>"
-                + "</a>";
+                "<a class='github-user' target='_blank' href='http://github.com/<%=login%>'>" +
+                "<span style='background-image:url(<%=avatar_url%>)' class='thumb' /></span>" +
+                "<span class='popup'>" +
+                "<span class='title'><%=login%></span>" +
+                "</span>" +
+                "</a>";
             var t = _(resp.data)
                 .map(function(i) { return _(template).template(i); })
                 .join('');
-            watchers.html(t);
+            watchers.append(t);
         }
     });
 };
@@ -76,13 +79,13 @@ longneck.setup = function() {
     var tweets = $('.tweets');
 
     $('.watch').hover(
-        function() { $('.watch-docs').addClass('active') },
-        function() { $('.watch-docs').removeClass('active') }
-    )
+        function() { $('.watch-docs').addClass('active'); },
+        function() { $('.watch-docs').removeClass('active'); }
+    );
 
     $.ajax({
         url: 'http://search.twitter.com/search.json',
-        data: { q: '{{site.hashtag}}', rpp:100 },
+        data: { q: site.hashtag, rpp:100 },
         dataType: 'jsonp',
         success: function(resp) {
             if (!resp.results.length) return;
@@ -93,15 +96,14 @@ longneck.setup = function() {
                 + "<span class='title'>@<%=from_user%></span>"
                 + "<small><%=text%></small>"
                 + "</span>"
-                + "<span class='caret'></span>"
                 + "</a>";
             var t = _(resp.results.slice(0,30))
                 .map(function(i) { return _(template).template(i); })
                 .join('');
-            tweets.html(t).addClass('loaded');
+            tweets.append(t).addClass('loaded');
         }
     });
-}
+};
 $(longneck.setup);
 
 context.longneck = longneck;
